@@ -24,12 +24,12 @@ type TrainingSample struct {
 
 // Model описывает структуру нейронной сети
 type Model struct {
-	Keywords            []string    // Список ключевых слов
-	Answers             []string    // Список уникальных ответов
+	Keywords            []string   // Список ключевых слов
+	Answers             []string   // Список уникальных ответов
 	WeightsInputHidden  [][]float64 // Веса между входным и скрытым слоями
-	BiasHidden          []float64   // Смещения скрытого слоя
+	BiasHidden          []float64  // Смещения скрытого слоя
 	WeightsHiddenOutput [][]float64 // Веса между скрытым и выходным слоями
-	BiasOutput          []float64   // Смещения выходного слоя
+	BiasOutput          []float64  // Смещения выходного слоя
 }
 
 // SaveToFile сохраняет модель в бинарный файл
@@ -74,7 +74,7 @@ func Learning(filename string) {
 		return
 	}
 	model := initializeModel(keywords, answers, len(keywords), len(answers))
-	trainModel(model, trainingData, 100, 0.1) // Пример: 100 эпох, скорость обучения 0.1
+	trainModel(model, trainingData, 100, 0.1)
 	fmt.Println("Обучение завершено. Сохранить прогресс? (y/n)")
 	var response string
 	fmt.Scanln(&response)
@@ -101,14 +101,9 @@ func InputOutput(model *Model, input string) {
 	hiddenInput := addVector(dot(model.WeightsInputHidden, inputVector), model.BiasHidden)
 	hiddenOutput := applySigmoid(hiddenInput)
 	outputInput := addVector(dot(model.WeightsHiddenOutput, hiddenOutput), model.BiasOutput)
-	output := softmax(outputInput)
-	maxIndex := 0
-	for i := 1; i < len(output); i++ {
-		if output[i] > output[maxIndex] {
-			maxIndex = i
-		}
-	}
-	answer := model.Answers[maxIndex]
+	output := softmaxWithTemperature(outputInput, 1.2) // Температура 1.2 для разнообразия
+	answerIndex := sampleFromProbabilities(output)
+	answer := model.Answers[answerIndex]
 	fmt.Println("Ответ:", answer)
 }
 
@@ -179,6 +174,8 @@ func createTrainingData(pairs []Pair, keywords []string, answers []string) ([]Tr
 	}
 	return trainingData, nil
 }
+
+// initializeModel инициализирует модель с случайными весами
 func initializeModel(keywords []string, answers []string, inputSize, outputSize int) *Model {
 	hiddenSize := 10
 	weightsInputHidden := make([][]float64, inputSize)
@@ -219,12 +216,10 @@ func trainModel(model *Model, trainingData []TrainingSample, epochs int, learnin
 		for _, sample := range trainingData {
 			input := sample.Input
 			target := sample.Target
-			// Прямое распространение
 			hiddenInput := addVector(dot(model.WeightsInputHidden, input), model.BiasHidden)
 			hiddenOutput := applySigmoid(hiddenInput)
 			outputInput := addVector(dot(model.WeightsHiddenOutput, hiddenOutput), model.BiasOutput)
 			output := softmax(outputInput)
-			// Обратное распространение
 			dOutputInput := make([]float64, len(output))
 			copy(dOutputInput, output)
 			dOutputInput[target] -= 1
@@ -234,7 +229,6 @@ func trainModel(model *Model, trainingData []TrainingSample, epochs int, learnin
 			dHiddenInput := mulVector(dHiddenOutput, sigmoidDerivativeVector(hiddenInput))
 			dWeightsInputHidden := outer(dHiddenInput, input)
 			dBiasHidden := dHiddenInput
-			// Обновление весов и смещений
 			model.WeightsInputHidden = subMatrix(model.WeightsInputHidden, scaleMatrix(dWeightsInputHidden, learningRate))
 			model.BiasHidden = subVector(model.BiasHidden, scaleVector(dBiasHidden, learningRate))
 			model.WeightsHiddenOutput = subMatrix(model.WeightsHiddenOutput, scaleMatrix(dWeightsHiddenOutput, learningRate))
@@ -257,6 +251,40 @@ func createInputVector(question string, keywords []string) []float64 {
 		}
 	}
 	return inputVector
+}
+
+// softmaxWithTemperature применяет softmax с температурой
+func softmaxWithTemperature(x []float64, temperature float64) []float64 {
+	maxVal := x[0]
+	for _, val := range x {
+		if val > maxVal {
+			maxVal = val
+		}
+	}
+	expSum := 0.0
+	scaled := make([]float64, len(x))
+	for i, val := range x {
+		scaled[i] = math.Exp((val - maxVal) / temperature)
+		expSum += scaled[i]
+	}
+	result := make([]float64, len(x))
+	for i := range x {
+		result[i] = scaled[i] / expSum
+	}
+	return result
+}
+
+// sampleFromProbabilities выбирает индекс ответа на основе вероятностей
+func sampleFromProbabilities(probs []float64) int {
+	r := rand.Float64()
+	sum := 0.0
+	for i, p := range probs {
+		sum += p
+		if r <= sum {
+			return i
+		}
+	}
+	return len(probs) - 1 // Возвращаем последний индекс в крайнем случае
 }
 
 // Математические вспомогательные функции
@@ -379,7 +407,7 @@ func softmax(x []float64) []float64 {
 	}
 	result := make([]float64, len(x))
 	for i, val := range x {
-		result[i] = math.Exp(val-maxVal) / expSum
+		result[i] = math.Exp(val - maxVal) / expSum
 	}
 	return result
 }
