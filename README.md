@@ -185,7 +185,7 @@ A binary file storing the trained model (weights, biases, keywords, answers).
 
 1. **Fork & Clone**:
    ```bash
-   git clone https://github.com/yourusername/simple_nn.git
+   git clone https://github.com/destro1t/simple_nn.git
    ```
 
 2. **Create a Branch**:
@@ -217,4 +217,4 @@ Licensed under the [MIT License](LICENSE). Use it, mod it, share it—go wild.
 
 ## Contact
 
-Got questions or want to collaborate? Reach out to **yourname@example.com** or hit us up on [GitHub Discussions](https://github.com/yourusername/simple_nn/discussions).
+Got questions or want to collaborate? Reach out to **destroitcanada@gmail.com** or hit us up on [GitHub Discussions](https://github.com/destro1t/simple_nn/discussions).
